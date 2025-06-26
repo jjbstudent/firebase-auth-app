@@ -1,6 +1,9 @@
+// ==============================
+// 1. Imports and Firebase Setup
+// ==============================
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics"; // Keep this if you want to use Firebase Analytics
+import { getAnalytics } from "firebase/analytics"; // Optional: Firebase Analytics
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -9,7 +12,7 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-  // signInAnonymously, // <-- You can uncomment this if you explicitly want anonymous sign-in on load
+  // signInAnonymously, // Uncomment for anonymous sign-in
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -18,18 +21,23 @@ import {
   getDoc,
 } from 'firebase/firestore';
 
+// ==============================
+// 2. Main App Component
+// ==============================
 function App() {
   const [user, setUser] = useState(null); // Firebase authenticated user object
   const [authError, setAuthError] = useState('');
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
-  const [loading, setLoading] = useState(true); // Added loading state
+  const [loading, setLoading] = useState(true); // Loading state
 
-  // Initialize Firebase and set up auth listener
+  // ------------------------------
+  // 2.1 Firebase Initialization & Auth Listener
+  // ------------------------------
   useEffect(() => {
     try {
-      // Your ACTUAL Firebase configuration
+      // --- Firebase Configuration ---
       const firebaseConfig = {
         apiKey: "AIzaSyDd0k5-vCrlL-7NhN8YZlnLPmPxMtT6UZY",
         authDomain: "user-auth-firebase-1dd8b.firebaseapp.com",
@@ -40,10 +48,9 @@ function App() {
         measurementId: "G-RZZZ7MNYYH"
       };
 
-      // Initialize Firebase app and services ONCE
+      // --- Initialize Firebase ---
       const app = initializeApp(firebaseConfig);
-      // If you are using analytics, initialize it here
-      // const analytics = getAnalytics(app); // Uncomment if you intend to use analytics
+      // const analytics = getAnalytics(app); // Optional
 
       const authInstance = getAuth(app);
       const dbInstance = getFirestore(app);
@@ -51,38 +58,18 @@ function App() {
       setAuth(authInstance);
       setDb(dbInstance);
 
-      // This block no longer needs the `signIn` async function wrapper
-      // and the `__initial_auth_token` check.
-      // If you want anonymous sign-in on load, simply uncomment the line below.
-      // Otherwise, the app will naturally show AuthForms when no user is logged in.
-      /*
-      const signInInitialUser = async () => {
-        try {
-          await signInAnonymously(authInstance);
-        } catch (error) {
-          console.error("Firebase initial anonymous sign-in error:", error);
-          setAuthError(`Initial sign-in failed: ${error.message}`);
-        } finally {
-          setLoading(false);
-        }
-      };
-      signInInitialUser();
-      */
-      setLoading(false); // Set loading to false directly if no initial sign-in attempt
-
-      // Listen for authentication state changes
+      // --- Auth State Listener ---
       const unsubscribe = onAuthStateChanged(authInstance, async (currentUser) => {
         setUser(currentUser);
         setIsAuthReady(true);
-        // If a user logs in, ensure their profile exists in Firestore
+        // Ensure user profile exists in Firestore
         if (currentUser && dbInstance) {
           const userId = currentUser.uid;
-          const appId = 'my-local-auth-app'; // Use a consistent ID for local dev
+          const appId = 'my-local-auth-app';
           const userProfileDocRef = doc(dbInstance, `artifacts/${appId}/users/${userId}/userProfile`, userId);
           const userProfileSnap = await getDoc(userProfileDocRef);
 
           if (!userProfileSnap.exists()) {
-            // Create a basic profile if it doesn't exist
             await setDoc(userProfileDocRef, {
               uid: currentUser.uid,
               email: currentUser.email || 'N/A',
@@ -93,14 +80,19 @@ function App() {
         }
       });
 
-      return () => unsubscribe(); // Cleanup auth listener on unmount
+      setLoading(false); // Set loading to false
+
+      return () => unsubscribe(); // Cleanup on unmount
     } catch (error) {
       console.error("Firebase initialization error:", error);
       setAuthError(`Firebase initialization failed: ${error.message}`);
-      setLoading(false); // Stop loading even if init fails
+      setLoading(false);
     }
   }, []);
 
+  // ------------------------------
+  // 2.2 Loading State
+  // ------------------------------
   if (loading || !isAuthReady) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -111,12 +103,16 @@ function App() {
     );
   }
 
+  // ------------------------------
+  // 2.3 Main Render
+  // ------------------------------
   return (
     <div className="font-sans antialiased text-gray-800 bg-gray-50 min-h-screen flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
         <h1 className="text-3xl font-extrabold text-center text-indigo-700 mb-8">
           User Authentication App
         </h1>
+        {/* --- Error Alert --- */}
         {authError && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
             <strong className="font-bold">Error!</strong>
@@ -124,6 +120,7 @@ function App() {
           </div>
         )}
 
+        {/* --- Auth or Dashboard --- */}
         {user ? (
           <Dashboard user={user} auth={auth} db={db} setAuthError={setAuthError} />
         ) : (
@@ -134,12 +131,15 @@ function App() {
   );
 }
 
-// AuthForms Component: Handles Login and Registration forms
+// ==============================
+// 3. AuthForms Component: Handles Login and Registration forms
+// ==============================
 function AuthForms({ auth, setAuthError, db }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // --- Handle Register or Sign In ---
   const handleAuthAction = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -149,7 +149,7 @@ function AuthForms({ auth, setAuthError, db }) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         // Store user details in Firestore
-        const appId = 'my-local-auth-app'; // Consistent ID
+        const appId = 'my-local-auth-app';
         const userId = user.uid;
         await setDoc(doc(db, `artifacts/${appId}/users/${userId}/userProfile`, userId), {
           uid: user.uid,
@@ -167,6 +167,7 @@ function AuthForms({ auth, setAuthError, db }) {
     }
   };
 
+  // --- Handle Google Sign In ---
   const handleGoogleSignIn = async () => {
     setAuthError('');
     try {
@@ -175,7 +176,7 @@ function AuthForms({ auth, setAuthError, db }) {
       const user = result.user;
 
       // Store or update user details in Firestore after Google sign-in
-      const appId = 'my-local-auth-app'; // Consistent ID
+      const appId = 'my-local-auth-app';
       const userId = user.uid;
       await setDoc(doc(db, `artifacts/${appId}/users/${userId}/userProfile`, userId), {
         uid: user.uid,
@@ -190,6 +191,7 @@ function AuthForms({ auth, setAuthError, db }) {
     }
   };
 
+  // --- Render Auth Form ---
   return (
     <div>
       <form onSubmit={handleAuthAction} className="space-y-4">
@@ -251,14 +253,17 @@ function AuthForms({ auth, setAuthError, db }) {
   );
 }
 
-// Dashboard Component: Displays user info and logout button
+// ==============================
+// 4. Dashboard Component: Displays user info and logout button
+// ==============================
 function Dashboard({ user, auth, db, setAuthError }) {
   const [userProfile, setUserProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  const appId = 'my-local-auth-app'; // Consistent ID
+  const appId = 'my-local-auth-app';
   const userId = user?.uid;
 
+  // --- Fetch User Profile from Firestore ---
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (db && userId) {
@@ -294,7 +299,7 @@ function Dashboard({ user, auth, db, setAuthError }) {
     fetchUserProfile();
   }, [user, db, userId, appId, setAuthError]);
 
-
+  // --- Handle Logout ---
   const handleLogout = async () => {
     setAuthError('');
     try {
@@ -305,6 +310,7 @@ function Dashboard({ user, auth, db, setAuthError }) {
     }
   };
 
+  // --- Render Dashboard ---
   if (loadingProfile) {
     return <p className="text-center text-gray-600">Loading user profile...</p>;
   }
@@ -327,7 +333,6 @@ function Dashboard({ user, auth, db, setAuthError }) {
       {userProfile?.email && <p className="text-sm text-gray-500">Email: <span className="font-mono bg-gray-100 p-1 rounded break-all">{userProfile?.email}</span></p>}
       {userProfile?.createdAt && <p className="text-sm text-gray-500">Account Created: {new Date(userProfile.createdAt.toDate ? userProfile.createdAt.toDate() : userProfile.createdAt).toLocaleString()}</p>}
 
-
       <button
         onClick={handleLogout}
         className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-200 transform hover:scale-105"
@@ -338,4 +343,7 @@ function Dashboard({ user, auth, db, setAuthError }) {
   );
 }
 
+// ==============================
+// 5. Export App
+// ==============================
 export default App;
