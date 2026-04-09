@@ -138,6 +138,15 @@ function AuthForms({ auth, setAuthError, db }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Auto-close success popup after 3 seconds
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => setShowSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
 
   // --- Handle Register or Sign In ---
   const handleAuthAction = async (e) => {
@@ -161,6 +170,7 @@ function AuthForms({ auth, setAuthError, db }) {
         // Sign in user with email and password
         await signInWithEmailAndPassword(auth, email, password);
       }
+      setShowSuccess(true);
     } catch (error) {
       console.error("Auth action error:", error);
       setAuthError(error.message);
@@ -185,6 +195,7 @@ function AuthForms({ auth, setAuthError, db }) {
         photoURL: user.photoURL,
         createdAt: new Date(),
       }, { merge: true });
+      setShowSuccess(true);
     } catch (error) {
       console.error("Google sign-in error:", error);
       setAuthError(error.message);
@@ -194,6 +205,15 @@ function AuthForms({ auth, setAuthError, db }) {
   // --- Render Auth Form ---
   return (
     <div>
+      {showSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
+            <h2 className="text-xl font-bold mb-4 text-green-600">Sign In Successful!</h2>
+            <p className="mb-4">Welcome! You have been signed in successfully.</p>
+            <button onClick={() => setShowSuccess(false)} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">OK</button>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleAuthAction} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
